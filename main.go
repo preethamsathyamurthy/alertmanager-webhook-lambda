@@ -24,10 +24,12 @@ type Attachments struct {
 }
 
 type MinimalSlackPayload struct {
-	Blocks  []SlackBlock `json:"blocks"`
-	Text    string       `json:"text"`
-	Channel string       `json:"channel"`
-	Icon    string       `json:"icon_emoji"`
+	Blocks      []SlackBlock  `json:"blocks"`
+	Text        string        `json:"text"`
+	Channel     string        `json:"channel"`
+	Icon        string        `json:"icon_emoji"`
+	Username    string        `json:"username"`
+	Attachments []Attachments `json:"attachments"`
 }
 
 var SlackChannel string
@@ -75,10 +77,12 @@ func expandAlerts(alert template.Alert) SlackText {
 }
 
 // This function generates the SLACK payload
-func generateSlackMessage(data *template.Data, slackChannel string) MinimalSlackPayload {
+func generateAlertmanagerSlackMessage(data *template.Data, slackChannel string) MinimalSlackPayload {
 	minimalSlackPayload := MinimalSlackPayload{}
 	minimalSlackPayload.Icon = ":alert:"
 	minimalSlackPayload.Channel = slackChannel
+	minimalSlackPayload.Username = "AlertBot"
+	minimalSlackPayload.Text = "Alerts found"
 	slackBlockHeader := SlackBlock{}
 	slackBlockHeader.Type = "header"
 	slackBlockHeader.Text = SlackText{
@@ -87,12 +91,15 @@ func generateSlackMessage(data *template.Data, slackChannel string) MinimalSlack
 	}
 	minimalSlackPayload.Blocks = append(minimalSlackPayload.Blocks, slackBlockHeader)
 
+	attachmentBlocks := Attachments{}
 	for i := 0; i < len(data.Alerts); i++ {
 		slackBlock := SlackBlock{}
 		slackBlock.Type = "section"
 		slackBlock.Text = expandAlerts(data.Alerts[i])
-		minimalSlackPayload.Blocks = append(minimalSlackPayload.Blocks, slackBlock)
+		attachmentBlocks.Blocks = append(attachmentBlocks.Blocks, slackBlock)
 	}
+
+	minimalSlackPayload.Attachments = append(minimalSlackPayload.Attachments, attachmentBlocks)
 	return minimalSlackPayload
 }
 
@@ -106,7 +113,7 @@ func HandleRequest(request events.APIGatewayProxyRequest) (events.APIGatewayProx
 		body := "Error: Invalid JSON payload ||| " + fmt.Sprint(err) + " Body Obtained" + "||||" + request.Body
 		ApiResponse = events.APIGatewayProxyResponse{Body: body, StatusCode: 500}
 	} else {
-		minimalSlackPayload := generateSlackMessage(data, request.QueryStringParameters["channel"])
+		minimalSlackPayload := generateAlertmanagerSlackMessage(data, request.QueryStringParameters["channel"])
 		sendSlackError := Send("https://hooks.slack.com/services/", "", minimalSlackPayload) // Update the appropriate Slack token here
 		if sendSlackError != nil {
 			fmt.Println("Error sending Slack message with error ")
