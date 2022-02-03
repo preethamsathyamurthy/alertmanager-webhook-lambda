@@ -64,8 +64,9 @@ func expandAlerts(alert template.Alert) SlackText {
 	slackText.Type = "mrkdwn"
 	slackText.Text = "*Alert: * " + alertName
 	slackText.Text += "\n*Status:* " + alert.Status
-	slackText.Text += "\n*Summary:* " + alert.Annotations["summary"]
-	slackText.Text += "\n*Description:* " + alert.Annotations["description"]
+	for k, v := range alert.Annotations {
+		slackText.Text += fmt.Sprintf("\n*%s* : %s", k, v)
+	}
 	slackText.Text += "\n*StartsAt:* _" + alert.StartsAt.String() + "_"
 	slackText.Text += "\n*EndsAt:* _" + alert.EndsAt.String() + "_"
 	slackText.Text += "\n\n*Details:* "
@@ -121,8 +122,12 @@ func HandleRequest(request events.APIGatewayProxyRequest) (events.APIGatewayProx
 			fmt.Println("######################################")
 			ApiResponse = events.APIGatewayProxyResponse{Body: "Error sending Slack message", StatusCode: 502}
 		}
-		v, _ := json.Marshal(minimalSlackPayload)
+		v, erro := json.Marshal(minimalSlackPayload)
+		if erro != nil {
+			ApiResponse = events.APIGatewayProxyResponse{Body: "Error in generating payload |||" + fmt.Sprint(erro), StatusCode: 200}
+		}
 		ApiResponse = events.APIGatewayProxyResponse{Body: string(v), StatusCode: 200}
+
 	}
 	fmt.Printf(ApiResponse.Body)
 	return ApiResponse, nil
